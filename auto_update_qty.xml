@@ -1,0 +1,485 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modification> 
+    <id>Auto update quantity</id>
+    <version>1.0</version>
+    <author>REDS</author>
+
+    <file name="catalog/view/theme/*/template/checkout/cart.tpl" error="skip">
+	    <operation error="log" position="before" info="2.3.0.X">
+				<search position="before"><![CDATA[<?php echo $footer; ?>]]></search>
+				<add><![CDATA[
+					<script type="text/javascript">
+					$(document).ready(function(){
+
+						$('.stepper').each(function () {
+							var $this = $(this);
+
+							$this.data('_isEnabled', true);
+
+							var $input = $this.find('input[name^="quantity"]');
+							var $propper_name = $this.find('input[name^="quantity"]').attr('name');
+							var $p_id = $this.find('input[name^="quantity"]').attr('p_id');
+							var value = $input.val();
+							var minimum = parseInt($input.data('minimum')) || 1;
+
+							$this.find('.fa-angle-up').on('click', function () {
+								$input.val(parseInt($input.val()) + 1);
+								$input.trigger('blur');
+							});
+
+							$this.find('.fa-angle-down').on('click', function () {
+								if (parseInt($input.val()) > minimum) {
+									$input.val(parseInt($input.val()) - 1);
+									$input.trigger('blur');
+								}
+							});
+
+							$input.on('keypress', function (e) {
+								if ((e.which < 48 || e.which > 57) && [8].indexOf(e.which) === -1) {
+									e.preventDefault();
+								}
+							});
+
+							$input.on('keydown', function (e) {
+								if (e.which === 38) {
+									e.preventDefault();
+									$input.val(parseInt($input.val()) + 1);
+									$input.trigger('change');
+								}
+
+								if (e.which === 40) {
+									e.preventDefault();
+									if (parseInt($input.val()) > minimum) {
+										$input.val(parseInt($input.val()) - 1);
+										$input.trigger('change');
+									}
+								}
+							});
+
+							$input.on('blur', function () {
+								if ((parseInt($input.val()) || 0) < minimum) {
+									$input.val(value);
+									$input.trigger('change');
+								}
+									update_qty($p_id, $input.val())
+
+							});
+
+						});
+					});
+
+					function update_qty(key , quantity){
+								$('.alert-success').remove();
+								$('.alert-danger').remove();
+								$('.text-danger').remove();
+								$.ajax({
+									url:'index.php?route=checkout/cart/update',
+									type:'POST',
+									dataType:'json',
+									data:'key=' + key + '&quantity=' + (typeof(quantity) != 'undefined' ? quantity : 1),
+									beforeSend:function(){
+										// $this.button("loading");
+									},
+									complete:function(){
+										// $this.button("reset");
+									},
+									success:function(json){
+										html = '';
+
+										if (json.totals) {
+											html = `<table class="table table-bordered">`;
+															json.totals.forEach( function(total, index) {
+															 html += `<tr>
+																				<td class="text-right"><strong> ${total.title }:</strong></td>
+																				<td class="text-right"> ${total.text} </td>
+																			</tr>`                               
+																});
+											 html+= `</table> `;
+											$('.cart-total').html(html)
+										}
+
+										if (json.table_total) {
+											json.table_total.forEach( function(table_t, index) {
+												$( ".update_total:eq("+index+")" ).html(table_t.total)
+												if (!table_t.stock) {
+													$( ".update_product:eq("+index+")" ).append(`<span class="text-danger">***</span>`)
+												}
+											});
+										}
+
+										if (json.success) {
+											$('#checkout-cart').prepend(`<div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> ${json.success}
+												<button type="button" class="close" data-dismiss="alert">&times;</button>
+											</div>`)
+										}
+
+										if (json.error_warning) {
+										 $('#checkout-cart').prepend(`<div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> ${json.error_warning}<button type="button" class="close" data-dismiss="alert">&times;</button>
+											 </div>`)
+										}
+
+										if (json.cart) {
+											$('#cart').parent().html(json.cart);
+										}
+
+									},
+								})
+					}
+					</script>
+					<style>
+							.stepper { display: flex;}
+							.stepper span{border:1px solid gainsboro;}
+							.stepper span .fa{ width: 18px;text-align: center;font-weight: 900;cursor: pointer;display: block;line-height: 14px;}
+							.stepper span i.fa.fa-angle-up{border-bottom: 1.5px solid gainsboro;}
+					</style>
+						]]></add>
+        </operation>
+				<operation error="log" position="replace" info="2.3.0.X">
+					<search position="replace"><![CDATA[<input type="text" name="quantity[<?php echo $product['cart_id']; ?>]" value="<?php echo $product['quantity']; ?>" size="1" class="form-control" />]]></search>
+					<add><![CDATA[
+								<div class="stepper">
+											<input type="text" name="quantity[<?php echo $product['cart_id']; ?>]" p_id="<?php echo $product['cart_id']; ?>" value="<?php echo $product['quantity']; ?>" size="1" class="form-control" />
+											<span>
+												<i class="fa fa-angle-up"></i>
+												<i class="fa fa-angle-down"></i>
+										 </span>
+								</div>
+							]]></add>
+        </operation>
+        <operation error="log" position="replace" info="2.3.0.X">
+            <search position="replace"><![CDATA[<td class="text-right"><?php echo $product['total']; ?></td>]]></search>
+            <add><![CDATA[
+                    <td class="text-right update_total"><?php echo $product['total']; ?></td>
+                ]]></add>
+        </operation> 
+        <operation error="log" position="before" info="2.3.0.X">
+            <search position="before"><![CDATA[<?php if ($attention) { ?>]]></search>
+            <add><![CDATA[
+                       <div id="checkout-cart">
+                       </div> 
+                ]]></add>
+        </operation>
+        <operation error="log" position="replace" info="2.3.0.X">
+            <search position="replace"><![CDATA[<div class="col-sm-4 col-sm-offset-8">]]></search>
+            <add><![CDATA[
+                <div class="col-sm-4 col-sm-offset-8 cart-total">
+                ]]></add>
+        </operation>
+        <operation error="log" position="replace" info="2.3.0.X">
+            <search position="replace"><![CDATA[<td class="text-left"><a href="<?php echo $product['href']; ?>"><?php echo $product['name']; ?></a>]]></search>
+            <add><![CDATA[
+                <td class="text-left update_product"><a href="<?php echo $product['href']; ?>"><?php echo $product['name']; ?></a>
+                ]]></add>
+        </operation>
+    </file>
+
+    <file name="catalog/view/theme/*/template/checkout/cart.twig" error="log">
+        <operation error="log" position="before" info="3.0.0.X">
+            <search position="before"><![CDATA[{{ footer }}]]></search>
+            <add><![CDATA[
+                <script type="text/javascript">
+                    $(document).ready(function(){
+
+                      $('.stepper').each(function () {
+                        var $this = $(this);
+
+                        $this.data('_isEnabled', true);
+
+                        var $input = $this.find('input[name^="quantity"]');
+                        var $propper_name = $this.find('input[name^="quantity"]').attr('name');
+                        var $p_id = $this.find('input[name^="quantity"]').attr('p_id');
+                        var value = $input.val();
+                        var minimum = parseInt($input.data('minimum')) || 1;
+
+                        $this.find('.fa-angle-up').on('click', function () {
+                          $input.val(parseInt($input.val()) + 1);
+                          $input.trigger('blur');
+                        });
+
+                        $this.find('.fa-angle-down').on('click', function () {
+                          if (parseInt($input.val()) > minimum) {
+                            $input.val(parseInt($input.val()) - 1);
+                            $input.trigger('blur');
+                          }
+                        });
+
+                        $input.on('keypress', function (e) {
+                          if ((e.which < 48 || e.which > 57) && [8].indexOf(e.which) === -1) {
+                            e.preventDefault();
+                          }
+                        });
+
+                        $input.on('keydown', function (e) {
+                          if (e.which === 38) {
+                            e.preventDefault();
+                            $input.val(parseInt($input.val()) + 1);
+                            $input.trigger('change');
+                          }
+
+                          if (e.which === 40) {
+                            e.preventDefault();
+                            if (parseInt($input.val()) > minimum) {
+                              $input.val(parseInt($input.val()) - 1);
+                              $input.trigger('change');
+                            }
+                          }
+                        });
+
+                        $input.on('blur', function () {
+                          if ((parseInt($input.val()) || 0) < minimum) {
+                            $input.val(value);
+                            $input.trigger('change');
+                          }
+                            update_qty($p_id, $input.val())
+
+                        });
+
+                      });
+                    });
+
+
+                    function update_qty(key , quantity){
+                          $('.alert-success').remove();
+                          $('.alert-danger').remove();
+                          $('.text-danger').remove();
+                          $.ajax({
+                            url:'index.php?route=checkout/cart/update',
+                            type:'POST',
+                            dataType:'json',
+                            data:'key=' + key + '&quantity=' + (typeof(quantity) != 'undefined' ? quantity : 1),
+                            beforeSend:function(){
+                              // $this.button("loading");
+                            },
+                            complete:function(){
+                              // $this.button("reset");
+                            },
+                            success:function(json){
+                              html = '';
+
+                              if (json.totals) {
+                                html = `<table class="table table-bordered">`;
+                                        json.totals.forEach( function(total, index) {
+                                         html += `<tr>
+                                                  <td class="text-right"><strong> ${total.title }:</strong></td>
+                                                  <td class="text-right"> ${total.text} </td>
+                                                </tr>`                               
+                                          });
+                                 html+= `</table> `;
+                                $('.cart-total').html(html)
+                              }
+
+                              if (json.table_total) {
+                                json.table_total.forEach( function(table_t, index) {
+                                  $( ".update_total:eq("+index+")" ).html(table_t.total)
+                                  if (!table_t.stock) {
+                                    $( ".update_product:eq("+index+")" ).append(`<span class="text-danger">***</span>`)
+                                  }
+                                });
+                              }
+
+                              if (json.success) {
+                                $('#checkout-cart').prepend(`<div class="alert alert-success alert-dismissible"><i class="fa fa-check-circle"></i> ${json.success}
+                                  <button type="button" class="close" data-dismiss="alert">&times;</button>
+                                </div>`)
+                              }
+
+                              if (json.error_warning) {
+                               $('#checkout-cart').prepend(`<div class="alert alert-danger alert-dismissible"><i class="fa fa-exclamation-circle"></i> ${json.error_warning}<button type="button" class="close" data-dismiss="alert">&times;</button>
+                                 </div>`)
+                              }
+
+                              if (json.cart) {
+                                $('#cart').parent().html(json.cart);
+                              }
+
+                            },
+                          })
+                    }
+                    </script>
+                    <style>
+                        .stepper { display: flex;}
+                        .stepper span{border:1px solid gainsboro;}
+                        .stepper span .fa{ width: 18px;text-align: center;font-weight: 900;cursor: pointer;display: block;line-height: 14px;}
+                        .stepper span i.fa.fa-angle-up{border-bottom: 1.5px solid gainsboro;}
+                    </style>
+                ]]></add>
+        </operation>
+          <operation error="log" position="replace" info="3.0.0.X">
+            <search position="replace"><![CDATA[<input type="text" name="quantity[{{ product.cart_id }}]" value="{{ product.quantity }}" size="1" class="form-control" />]]></search>
+            <add><![CDATA[
+                  <div class="stepper">
+                        <input type="text" name="quantity[{{ product.cart_id }}]" p_id="{{ product.cart_id }}" value="{{ product.quantity }}" size="1" class="form-control" />
+                        <span>
+                          <i class="fa fa-angle-up"></i>
+                          <i class="fa fa-angle-down"></i>
+                       </span>
+                  </div>
+                ]]></add>
+        </operation>
+        <operation error="log" position="replace" info="3.0.0.X">
+            <search position="replace"><![CDATA[<td class="text-right">{{ product.total }}</td>]]></search>
+            <add><![CDATA[
+                    <td class="text-right update_total">{{ product.total }}</td>
+                ]]></add>
+        </operation>
+        <operation error="log" position="replace" info="3.0.0.X">
+            <search position="replace"><![CDATA[<div class="col-sm-4 col-sm-offset-8">]]></search>
+            <add><![CDATA[
+                <div class="col-sm-4 col-sm-offset-8 cart-total">
+                ]]></add>
+        </operation>
+        <operation error="log" position="replace" info="3.0.0.X">
+            <search position="replace"><![CDATA[<td class="text-left"><a href="{{ product.href }}">{{ product.name }}</a>]]></search>
+            <add><![CDATA[
+                <td class="text-left update_product"><a href="{{ product.href }}">{{ product.name }}</a>
+                ]]></add>
+        </operation>
+    </file>
+
+     <file name="catalog/controller/checkout/cart.php" error="skip">
+        <operation error="log" position="before" info="2.3.0.X">
+            <search position="before"><![CDATA[public function index() {]]></search>
+            <add><![CDATA[
+                public function update() {
+                    $this->load->language('checkout/cart');
+
+                    $json = array();
+
+                    
+                    // Update
+                    if (!empty($this->request->post['quantity']) && !empty($this->request->post['key'])) {
+
+                        $this->cart->update($this->request->post['key'], $this->request->post['quantity']);                          
+
+                        if (!$this->cart->hasStock() && (!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning'))) {
+                            $json['error_warning'] = $this->language->get('error_stock');
+                        } elseif (isset($this->session->data['error'])) {
+                            $json['error_warning'] = $this->session->data['error'];
+                            unset($this->session->data['error']);
+                        } else {
+                            $json['error_warning'] = '';
+                        }
+
+                        $this->session->data['success'] = $this->language->get('text_remove');
+
+                        if (isset($this->session->data['success'])) {
+                            $json['success'] = $this->session->data['success'];
+                            unset($this->session->data['success']);
+                        } else {
+                            $json['success'] = '';
+                        }
+
+                        unset($this->session->data['shipping_method']);
+                        unset($this->session->data['shipping_methods']);
+                        unset($this->session->data['payment_method']);
+                        unset($this->session->data['payment_methods']);
+                        unset($this->session->data['reward']);
+
+                        //product tabel total update
+                        usleep(300);
+
+                        $products = $this->cart->getProducts();
+
+                        foreach ($products as $product) {
+
+                        if ($this->customer->isLogged() || !$this->config->get('config_customer_price')) {
+                            $unit_price = $this->tax->calculate($product['price'], $product['tax_class_id'], $this->config->get('config_tax'));
+                            
+                            $price = $this->currency->format($unit_price, $this->session->data['currency']);
+                            $total = $this->currency->format($unit_price * $product['quantity'], $this->session->data['currency']);
+                        } else {
+                            $price = false;
+                            $total = false;
+                        }
+                        
+                            $json['table_total'][] = array(
+                                'stock'     => $product['stock'] ? true : !(!$this->config->get('config_stock_checkout') || $this->config->get('config_stock_warning')),
+                                'total'     => $total,
+                            );
+                        }
+
+
+                          
+
+                        if('2.3.0.2' >= VERSION){ 
+                            $this->load->model('extension/extension');
+                        }else{
+                            $this->load->model('setting/extension');
+                        }
+
+                        $totals = array();
+                        $taxes = $this->cart->getTaxes();
+                        $total = 0;
+                        
+                        // Because __call can not keep var references so we put them into an array.             
+                        $total_data = array(
+                            'totals' => &$totals,
+                            'taxes'  => &$taxes,
+                            'total'  => &$total
+                        );
+                        
+                        // Display prices
+                        if ($this->customer->isLogged() || !$this->config->get('config_customer_price')) {
+                            $sort_order = array();
+
+                            if('2.3.0.2' >= VERSION){
+                                $results = $this->model_extension_extension->getExtensions('total');
+                                foreach ($results as $key => $value) {
+                                    $sort_order[$key] = $this->config->get($value['code'] . '_sort_order');
+                                }
+                                array_multisort($sort_order, SORT_ASC, $results);
+
+                                foreach ($results as $result) {
+                                    if ($this->config->get($result['code'] . '_status')) {
+                                        $this->load->model('extension/total/' . $result['code']);
+                                        
+                                        // We have to put the totals in an array so that they pass by reference.
+                                        $this->{'model_extension_total_' . $result['code']}->getTotal($total_data);
+                                    }
+                                }
+                            }else{
+                                $results = $this->model_setting_extension->getExtensions('total');
+                                foreach ($results as $key => $value) {
+                                  $sort_order[$key] = $this->config->get('total_' . $value['code'] . '_sort_order');
+                                }
+                                array_multisort($sort_order, SORT_ASC, $results);
+
+                                foreach ($results as $result) {
+                                  if ($this->config->get('total_' . $result['code'] . '_status')) {
+                                    $this->load->model('extension/total/' . $result['code']);
+                                    
+                                    // We have to put the totals in an array so that they pass by reference.
+                                    $this->{'model_extension_total_' . $result['code']}->getTotal($total_data);
+                                  }
+                                }
+                            }
+
+                            $sort_order = array();
+
+                            foreach ($totals as $key => $value) {
+                                $sort_order[$key] = $value['sort_order'];
+                            }
+
+                            array_multisort($sort_order, SORT_ASC, $totals);
+                        }
+
+                        $json['totals'] = array();
+
+                        foreach ($totals as $total) {
+                            $json['totals'][] = array(
+                                'title' => $total['title'],
+                                'text'  => $this->currency->format($total['value'], $this->session->data['currency'])
+                            );
+                        }
+                    }
+
+                    $json['cart'] = $this->load->controller('common/cart');
+
+                    $this->response->addHeader('Content-Type: application/json');
+                    $this->response->setOutput(json_encode($json));
+                }
+                ]]></add>
+        </operation>
+    </file>
+
+</modification>
